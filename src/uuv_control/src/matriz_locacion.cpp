@@ -32,7 +32,7 @@ public:
 
     }
 
-    
+
 
 private:
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pub_;
@@ -95,7 +95,7 @@ private:
         // Resolver sistema matricial
         Eigen::Matrix<double,6,1> F = A.colPivHouseholderQr().solve(tau);
 
-        RCLCPP_INFO(this->get_logger(), "Computed [%.2f, %.2f, %2.f, %.2f, %.2f, %.2f]", 
+        RCLCPP_INFO(this->get_logger(), "Computed [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]", 
             F[0], F[1], F[2], F[3], F[4], F[5]);
 
         std_msgs::msg::Float64MultiArray toPublish;
@@ -109,7 +109,7 @@ private:
         
     }
 
-    
+
 
 
 };
