@@ -1,25 +1,25 @@
 #include <tf2/LinearMath/Quaternion.h>
 
-#include <cstdio>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <cstdio>
 
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/vector3.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "src/model/uuv_dynamic_model.h"
 #include "std_msgs/msg/float64.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 #include "tf2_ros/transform_broadcaster.h"
-#include "src/model/uuv_dynamic_model.h"
 
 using namespace std::chrono_literals;
 
 class DynamicModelSim : public rclcpp::Node {
- public:
+public:
   DynamicModelSim() : Node("dynamic_model_uuv") {
     using namespace std::placeholders;
 
@@ -32,17 +32,15 @@ class DynamicModelSim : public rclcpp::Node {
         this->create_publisher<nav_msgs::msg::Odometry>("output/odom", 10);
 
     thrusterSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
-        "uuv/forces", 10,
-        [this](const std_msgs::msg::Float64MultiArray &msg) {
-            RCLCPP_ERROR(this->get_logger(), "ex: %f", 
-            msg.data[0]);
-            for(int i = 0 ; i < 6 ; i++){
-                thruster_input[i] = msg.data[i];
-            }
+        "uuv/forces", 10, [this](const std_msgs::msg::Float64MultiArray &msg) {
+          for (int i = 0; i < 6; i++) {
+            thruster_input[i] = msg.data[i];
+            RCLCPP_INFO(this->get_logger(), "t%d: %f", i, thruster_input[i]);
+          }
         });
 
-    pose_path_pub = this->create_publisher<nav_msgs::msg::Path>(
-        "uuv/pose_path", 10);
+    pose_path_pub =
+        this->create_publisher<nav_msgs::msg::Path>("uuv/pose_path", 10);
 
     tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     pose_stamped_tmp_.header.frame_id = "world";
@@ -53,12 +51,11 @@ class DynamicModelSim : public rclcpp::Node {
         10ms, std::bind(&DynamicModelSim::update, this));
   }
 
- protected:
-
-  double normalize_angle(double ang){
-    double out = std::fmod(ang + M_PI, M_PI*2);
-    if(out < 0)
-      out+=M_PI*2;
+protected:
+  double normalize_angle(double ang) {
+    double out = std::fmod(ang + M_PI, M_PI * 2);
+    if (out < 0)
+      out += M_PI * 2;
     return out - M_PI;
   }
 
@@ -69,12 +66,12 @@ class DynamicModelSim : public rclcpp::Node {
     /**
      * Output stage
      */
-    double x = out.eta[0];  // position in x
-    double y = out.eta[1];  // position in y
-    double z = out.eta[2];  // position in y
+    double x = out.eta[0];                      // position in x
+    double y = out.eta[1];                      // position in y
+    double z = out.eta[2];                      // position in y
     double roll = normalize_angle(out.eta[3]);  // position in y
-    double pitch = normalize_angle(out.eta[4]);  // position in y
-    double yaw = normalize_angle(out.eta[5]);  // position in y
+    double pitch = normalize_angle(out.eta[4]); // position in y
+    double yaw = normalize_angle(out.eta[5]);   // position in y
 
     geometry_msgs::msg::Pose pose;
     nav_msgs::msg::Odometry odom;
@@ -101,12 +98,12 @@ class DynamicModelSim : public rclcpp::Node {
 
     double u, v, w, p, q, r;
 
-    u = out.nu[0];  // surge velocity
-    v = out.nu[1];  // sway velocity
-    w = out.nu[2];  // heave velocity
-    p = out.nu[3];  // roll rate
-    q = out.nu[4];  // pitch rate
-    r = out.nu[5];  // yaw rate
+    u = out.nu[0]; // surge velocity
+    v = out.nu[1]; // sway velocity
+    w = out.nu[2]; // heave velocity
+    p = out.nu[3]; // roll rate
+    q = out.nu[4]; // pitch rate
+    r = out.nu[5]; // yaw rate
 
     odom.twist.twist.linear.x = u;
     odom.twist.twist.linear.y = v;
@@ -120,8 +117,9 @@ class DynamicModelSim : public rclcpp::Node {
     pose_path.poses.push_back(pose_stamped_tmp_);
 
     // Erase elements when path is too long
-    if(pose_path.poses.size() > 1000*5){
-      pose_path.poses.erase(pose_path.poses.begin(), pose_path.poses.begin()+1);
+    if (pose_path.poses.size() > 1000 * 5) {
+      pose_path.poses.erase(pose_path.poses.begin(),
+                            pose_path.poses.begin() + 1);
     }
     odom.header = pose_stamped_tmp_.header;
     odomPub->publish(odom);
@@ -130,14 +128,14 @@ class DynamicModelSim : public rclcpp::Node {
     tf_broadcast(pose);
   }
 
- private:
+private:
   rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr posePub;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pose_path_pub;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub;
   rclcpp::TimerBase::SharedPtr updateTimer;
 
   geometry_msgs::msg::PoseStamped pose_stamped_tmp_;
-    nav_msgs::msg::Path pose_path;
+  nav_msgs::msg::Path pose_path;
 
   rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr thrusterSub;
   std::array<double, 6> thruster_input;
@@ -154,7 +152,8 @@ class DynamicModelSim : public rclcpp::Node {
     // corresponding tf variables
     t.header.stamp = this->get_clock()->now();
     t.header.frame_id = "world";
-    t.child_frame_id = subname_.c_str();;
+    t.child_frame_id = subname_.c_str();
+    ;
 
     t.transform.translation.x = msg.position.x;
     t.transform.translation.y = msg.position.y;
